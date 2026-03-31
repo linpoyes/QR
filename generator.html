@@ -700,20 +700,29 @@
     const logoImg = new Image();
     logoImg.onload = function() {
       const ctx = canvas.getContext('2d');
-      const logoSize = Math.floor(canvas.width * logoPct);
-      const padding = Math.floor(logoSize * 0.12);
-      const totalSize = logoSize + padding * 2;
-      const x = Math.floor((canvas.width - totalSize) / 2);
-      const y = Math.floor((canvas.height - totalSize) / 2);
+      const maxSize = Math.floor(canvas.width * logoPct);
 
-      // Draw white/bg rounded rect behind logo
+      // Preserve aspect ratio: fit within maxSize x maxSize
+      const imgW = logoImg.naturalWidth;
+      const imgH = logoImg.naturalHeight;
+      const scale = Math.min(maxSize / imgW, maxSize / imgH);
+      const drawW = Math.floor(imgW * scale);
+      const drawH = Math.floor(imgH * scale);
+
+      const padding = Math.floor(Math.max(drawW, drawH) * 0.12);
+      const totalW = drawW + padding * 2;
+      const totalH = drawH + padding * 2;
+      const x = Math.floor((canvas.width - totalW) / 2);
+      const y = Math.floor((canvas.height - totalH) / 2);
+
+      // Draw bg rect behind logo
       ctx.fillStyle = bg;
-      ctx.fillRect(x, y, totalSize, totalSize);
+      ctx.fillRect(x, y, totalW, totalH);
 
-      // Draw logo
+      // Draw logo centered
       const lx = x + padding;
       const ly = y + padding;
-      ctx.drawImage(logoImg, lx, ly, logoSize, logoSize);
+      ctx.drawImage(logoImg, lx, ly, drawW, drawH);
 
       callback(canvas);
     };
@@ -828,13 +837,13 @@
       let logoSVG = '';
       if (logoDataURL) {
         const logoPct = parseInt(document.getElementById('logoSizeRange').value) / 100;
-        const logoSize = Math.floor(moduleCount * logoPct);
-        const padding = Math.floor(logoSize * 0.12);
-        const totalSize = logoSize + padding * 2;
+        const maxLogoSize = Math.floor(moduleCount * logoPct);
+        const padding = Math.floor(maxLogoSize * 0.12);
+        const totalSize = maxLogoSize + padding * 2;
         const lx = Math.floor((moduleCount - totalSize) / 2);
         const ly = Math.floor((moduleCount - totalSize) / 2);
         logoSVG = `<rect x="${lx}" y="${ly}" width="${totalSize}" height="${totalSize}" fill="${bg}"/>
-<image x="${lx + padding}" y="${ly + padding}" width="${logoSize}" height="${logoSize}" href="${logoDataURL}"/>`;
+<image x="${lx + padding}" y="${ly + padding}" width="${maxLogoSize}" height="${maxLogoSize}" href="${logoDataURL}" preserveAspectRatio="xMidYMid meet"/>`;
       }
 
       const svg = `<?xml version="1.0" encoding="UTF-8"?>

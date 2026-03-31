@@ -1,0 +1,706 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>QR Code 圖片合成</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;500;700;900&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0a0f;
+    --surface: #12121a;
+    --surface-hover: #1a1a26;
+    --border: #2a2a3a;
+    --accent: #00e5a0;
+    --accent-dim: #00e5a020;
+    --accent-mid: #00e5a060;
+    --text: #e8e8f0;
+    --text-dim: #6a6a80;
+    --danger: #ff4d6a;
+    --radius: 16px;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Noto Sans TC', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(var(--border) 1px, transparent 1px),
+      linear-gradient(90deg, var(--border) 1px, transparent 1px);
+    background-size: 60px 60px;
+    opacity: 0.15;
+    z-index: 0;
+    animation: gridShift 20s linear infinite;
+  }
+
+  @keyframes gridShift {
+    0% { transform: translate(0, 0); }
+    100% { transform: translate(60px, 60px); }
+  }
+
+  .orb {
+    position: fixed;
+    border-radius: 50%;
+    filter: blur(120px);
+    opacity: 0.12;
+    z-index: 0;
+    pointer-events: none;
+  }
+  .orb-1 { width: 500px; height: 500px; background: #6c5ce7; top: -150px; left: -100px; }
+  .orb-2 { width: 400px; height: 400px; background: var(--accent); bottom: -100px; right: -100px; }
+
+  .container {
+    position: relative;
+    z-index: 1;
+    max-width: 560px;
+    margin: 0 auto;
+    padding: 32px 20px 60px;
+  }
+
+  .header {
+    text-align: center;
+    margin-bottom: 40px;
+    animation: fadeUp 0.6s ease-out;
+  }
+
+  .header .logo-icon {
+    width: 48px; height: 48px;
+    background: var(--accent);
+    border-radius: 12px;
+    display: inline-grid;
+    place-items: center;
+    position: relative;
+    overflow: hidden;
+    margin-bottom: 12px;
+  }
+
+  .logo-icon::after {
+    content: '';
+    position: absolute;
+    inset: 6px;
+    border: 3px solid var(--bg);
+    border-radius: 4px;
+  }
+
+  .logo-icon .dot {
+    width: 8px; height: 8px;
+    background: var(--bg);
+    border-radius: 2px;
+    position: relative;
+    z-index: 1;
+  }
+
+  .header h1 {
+    font-size: 28px;
+    font-weight: 900;
+    letter-spacing: -0.5px;
+    background: linear-gradient(135deg, var(--text), var(--accent));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+
+  .header p {
+    color: var(--text-dim);
+    font-size: 14px;
+    font-weight: 300;
+    margin-top: 6px;
+  }
+
+  .back-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    color: var(--text-dim);
+    text-decoration: none;
+    font-size: 13px;
+    margin-bottom: 20px;
+    transition: color 0.2s;
+  }
+  .back-link:hover { color: var(--accent); }
+  .back-link svg { width: 16px; height: 16px; }
+
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 28px;
+    margin-bottom: 20px;
+    animation: fadeUp 0.6s ease-out;
+    animation-fill-mode: both;
+  }
+
+  .card:nth-child(2) { animation-delay: 0.05s; }
+  .card:nth-child(3) { animation-delay: 0.1s; }
+  .card:nth-child(4) { animation-delay: 0.15s; }
+
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .card-title {
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    color: var(--accent);
+    margin-bottom: 18px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .card-title::before {
+    content: '';
+    width: 4px; height: 4px;
+    background: var(--accent);
+    border-radius: 50%;
+    box-shadow: 0 0 8px var(--accent);
+  }
+
+  /* Upload areas */
+  .upload-area {
+    border: 1px dashed var(--border);
+    border-radius: 10px;
+    padding: 24px 16px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.25s;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .upload-area:hover {
+    border-color: var(--accent);
+    background: var(--accent-dim);
+  }
+
+  .upload-area input[type="file"] {
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    cursor: pointer;
+  }
+
+  .upload-area .hint {
+    font-size: 13px;
+    color: var(--text-dim);
+  }
+
+  .upload-area .hint svg {
+    display: block;
+    margin: 0 auto 8px;
+    width: 28px; height: 28px;
+  }
+
+  .upload-area .hint .sub {
+    font-size: 11px;
+    margin-top: 4px;
+    opacity: 0.6;
+  }
+
+  /* Preview strip */
+  .preview-strip {
+    display: none;
+    align-items: center;
+    gap: 12px;
+    margin-top: 14px;
+    padding: 10px 12px;
+    background: var(--bg);
+    border-radius: 10px;
+  }
+
+  .preview-strip.visible { display: flex; }
+
+  .preview-strip img {
+    width: 48px; height: 48px;
+    object-fit: contain;
+    border-radius: 6px;
+    background: #fff;
+  }
+
+  .preview-strip .info {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .preview-strip .info .name {
+    font-size: 13px;
+    color: var(--text);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .preview-strip .info .dims {
+    font-size: 11px;
+    color: var(--text-dim);
+    font-family: 'JetBrains Mono', monospace;
+    margin-top: 2px;
+  }
+
+  .preview-strip .btn-remove {
+    background: none;
+    border: none;
+    color: var(--danger);
+    cursor: pointer;
+    font-size: 20px;
+    padding: 4px 8px;
+    border-radius: 6px;
+    transition: background 0.2s;
+    flex-shrink: 0;
+  }
+
+  .preview-strip .btn-remove:hover {
+    background: rgba(255,77,106,0.1);
+  }
+
+  /* Compose canvas */
+  .compose-container {
+    position: relative;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    overflow: hidden;
+    margin-bottom: 16px;
+    touch-action: none;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+
+  .compose-container canvas {
+    display: block;
+    width: 100%;
+    height: auto;
+  }
+
+  .compose-empty {
+    padding: 60px 20px;
+    text-align: center;
+    color: var(--text-dim);
+    font-size: 14px;
+  }
+
+  .compose-empty svg {
+    display: block;
+    margin: 0 auto 12px;
+    width: 40px; height: 40px;
+    opacity: 0.3;
+  }
+
+  /* Controls */
+  .ctrl-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 12px;
+  }
+
+  .ctrl-row label {
+    font-size: 11px;
+    color: var(--text-dim);
+    white-space: nowrap;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    font-weight: 500;
+    min-width: 60px;
+  }
+
+  .ctrl-row input[type="range"] {
+    flex: 1;
+    accent-color: var(--accent);
+    height: 4px;
+  }
+
+  .ctrl-row .val {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    color: var(--accent);
+    min-width: 42px;
+    text-align: right;
+  }
+
+  .btn-generate {
+    width: 100%;
+    padding: 16px;
+    border: none;
+    border-radius: 12px;
+    background: var(--accent);
+    color: var(--bg);
+    font-family: 'Noto Sans TC', sans-serif;
+    font-size: 16px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.3s;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .btn-generate:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 30px var(--accent-mid);
+  }
+
+  .btn-generate:active { transform: translateY(0); }
+
+  .btn-generate:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
+  }
+
+  .btn-generate::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(135deg, transparent 40%, rgba(255,255,255,0.15) 50%, transparent 60%);
+    transform: translateX(-100%);
+    transition: transform 0.5s;
+  }
+
+  .btn-generate:hover:not(:disabled)::after {
+    transform: translateX(100%);
+  }
+
+  .hint-text {
+    font-size: 12px;
+    color: var(--text-dim);
+    text-align: center;
+    margin-bottom: 12px;
+  }
+
+  /* Toast */
+  .toast {
+    position: fixed;
+    bottom: 30px;
+    left: 50%;
+    transform: translateX(-50%) translateY(100px);
+    background: var(--accent);
+    color: var(--bg);
+    padding: 12px 24px;
+    border-radius: 10px;
+    font-size: 14px;
+    font-weight: 700;
+    z-index: 999;
+    transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    pointer-events: none;
+  }
+
+  .toast.show {
+    transform: translateX(-50%) translateY(0);
+  }
+
+  @media (max-width: 480px) {
+    .container { padding: 20px 16px 40px; }
+    .card { padding: 20px; }
+    .header h1 { font-size: 24px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="orb orb-1"></div>
+<div class="orb orb-2"></div>
+
+<div class="container">
+  <a href="index.html" class="back-link">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
+    返回首頁
+  </a>
+
+  <div class="header">
+    <div class="logo-icon"><div class="dot"></div></div>
+    <h1>QR 圖片合成</h1>
+    <p>上傳背景圖 + QR Code，拖曳擺放位置，下載合成圖</p>
+  </div>
+
+  <!-- Step 1: Background -->
+  <div class="card">
+    <div class="card-title">① 上傳背景圖片</div>
+    <div class="upload-area" id="bgUploadArea">
+      <input type="file" id="bgInput" accept="image/*" onchange="handleBg(event)">
+      <div class="hint">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+        點擊或拖曳上傳背景圖
+        <div class="sub">支援 JPG / PNG / WebP</div>
+      </div>
+    </div>
+    <div class="preview-strip" id="bgPreview">
+      <img id="bgThumb" src="" alt="">
+      <div class="info">
+        <div class="name" id="bgName"></div>
+        <div class="dims" id="bgDims"></div>
+      </div>
+      <button class="btn-remove" onclick="removeBg()" title="移除">&times;</button>
+    </div>
+  </div>
+
+  <!-- Step 2: QR -->
+  <div class="card">
+    <div class="card-title">② 上傳 QR Code 圖片</div>
+    <div class="upload-area" id="qrUploadArea">
+      <input type="file" id="qrInput" accept="image/*" onchange="handleQr(event)">
+      <div class="hint">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="3" height="3"/></svg>
+        點擊或拖曳上傳 QR Code
+        <div class="sub">從 QR 生成器下載的 PNG 即可</div>
+      </div>
+    </div>
+    <div class="preview-strip" id="qrPreview">
+      <img id="qrThumb" src="" alt="">
+      <div class="info">
+        <div class="name" id="qrName"></div>
+        <div class="dims" id="qrDims"></div>
+      </div>
+      <button class="btn-remove" onclick="removeQr()" title="移除">&times;</button>
+    </div>
+  </div>
+
+  <!-- Step 3: Compose -->
+  <div class="card">
+    <div class="card-title">③ 合成預覽</div>
+
+    <div class="compose-container" id="composeWrap">
+      <div class="compose-empty" id="composeEmpty">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+        請先上傳背景圖與 QR Code
+      </div>
+      <canvas id="composeCanvas" style="display:none;"></canvas>
+    </div>
+
+    <div id="composeControls" style="display:none;">
+      <p class="hint-text">拖曳 QR Code 調整位置</p>
+
+      <div class="ctrl-row">
+        <label>QR 大小</label>
+        <input type="range" id="qrSizeRange" min="5" max="80" value="25" oninput="onSizeChange()">
+        <span class="val" id="qrSizeVal">25%</span>
+      </div>
+
+      <button class="btn-generate" onclick="downloadCompose()">⬇ 下載合成圖片（PNG）</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+  let bgImg = null, qrImg = null;
+  let qrX = 0, qrY = 0, qrW = 0, qrH = 0;
+  let dragging = false, dragOX = 0, dragOY = 0;
+
+  // ---- Background ----
+  function handleBg(e) {
+    loadImage(e.target.files[0], (img, file) => {
+      bgImg = img;
+      document.getElementById('bgThumb').src = img.src;
+      document.getElementById('bgName').textContent = file.name;
+      document.getElementById('bgDims').textContent = img.width + ' × ' + img.height + ' px';
+      document.getElementById('bgPreview').classList.add('visible');
+      tryCompose();
+    });
+  }
+
+  function removeBg() {
+    bgImg = null;
+    document.getElementById('bgInput').value = '';
+    document.getElementById('bgPreview').classList.remove('visible');
+    hideCompose();
+  }
+
+  // ---- QR ----
+  function handleQr(e) {
+    loadImage(e.target.files[0], (img, file) => {
+      qrImg = img;
+      document.getElementById('qrThumb').src = img.src;
+      document.getElementById('qrName').textContent = file.name;
+      document.getElementById('qrDims').textContent = img.width + ' × ' + img.height + ' px';
+      document.getElementById('qrPreview').classList.add('visible');
+      tryCompose();
+    });
+  }
+
+  function removeQr() {
+    qrImg = null;
+    document.getElementById('qrInput').value = '';
+    document.getElementById('qrPreview').classList.remove('visible');
+    hideCompose();
+  }
+
+  function loadImage(file, cb) {
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = function(ev) {
+      const img = new Image();
+      img.onload = () => cb(img, file);
+      img.src = ev.target.result;
+    };
+    reader.readAsDataURL(file);
+  }
+
+  // ---- Compose ----
+  function tryCompose() {
+    if (!bgImg || !qrImg) return;
+
+    // Init QR position & size
+    const pct = parseInt(document.getElementById('qrSizeRange').value) / 100;
+    qrW = Math.floor(bgImg.width * pct);
+    qrH = qrW; // keep square
+    qrX = Math.floor((bgImg.width - qrW) / 2);
+    qrY = Math.floor((bgImg.height - qrH) / 2);
+
+    document.getElementById('composeEmpty').style.display = 'none';
+    document.getElementById('composeCanvas').style.display = 'block';
+    document.getElementById('composeControls').style.display = 'block';
+
+    render();
+  }
+
+  function hideCompose() {
+    if (!bgImg || !qrImg) {
+      document.getElementById('composeEmpty').style.display = '';
+      document.getElementById('composeCanvas').style.display = 'none';
+      document.getElementById('composeControls').style.display = 'none';
+    }
+  }
+
+  function onSizeChange() {
+    const val = document.getElementById('qrSizeRange').value;
+    document.getElementById('qrSizeVal').textContent = val + '%';
+    if (!bgImg || !qrImg) return;
+
+    const pct = parseInt(val) / 100;
+    const cx = qrX + qrW / 2, cy = qrY + qrH / 2;
+    qrW = Math.floor(bgImg.width * pct);
+    qrH = qrW;
+    qrX = Math.floor(cx - qrW / 2);
+    qrY = Math.floor(cy - qrH / 2);
+    clamp();
+    render();
+  }
+
+  function clamp() {
+    if (!bgImg) return;
+    qrX = Math.max(0, Math.min(qrX, bgImg.width - qrW));
+    qrY = Math.max(0, Math.min(qrY, bgImg.height - qrH));
+  }
+
+  function render() {
+    if (!bgImg || !qrImg) return;
+    const c = document.getElementById('composeCanvas');
+    c.width = bgImg.width;
+    c.height = bgImg.height;
+    const ctx = c.getContext('2d');
+
+    ctx.drawImage(bgImg, 0, 0);
+    ctx.drawImage(qrImg, qrX, qrY, qrW, qrH);
+
+    // Dashed selection border
+    const lw = Math.max(2, bgImg.width * 0.003);
+    ctx.strokeStyle = 'rgba(0, 229, 160, 0.85)';
+    ctx.lineWidth = lw;
+    ctx.setLineDash([lw * 3, lw * 2]);
+    ctx.strokeRect(qrX, qrY, qrW, qrH);
+    ctx.setLineDash([]);
+  }
+
+  // ---- Drag ----
+  function canvasPos(e) {
+    const c = document.getElementById('composeCanvas');
+    const r = c.getBoundingClientRect();
+    const scale = r.width / c.width;
+    const cx = e.touches ? e.touches[0].clientX : e.clientX;
+    const cy = e.touches ? e.touches[0].clientY : e.clientY;
+    return { x: (cx - r.left) / scale, y: (cy - r.top) / scale };
+  }
+
+  function inQr(p) {
+    return p.x >= qrX && p.x <= qrX + qrW && p.y >= qrY && p.y <= qrY + qrH;
+  }
+
+  function onDown(e) {
+    if (!bgImg || !qrImg) return;
+    const p = canvasPos(e);
+    if (inQr(p)) {
+      dragging = true;
+      dragOX = p.x - qrX;
+      dragOY = p.y - qrY;
+      e.preventDefault();
+    }
+  }
+
+  function onMove(e) {
+    if (!dragging) return;
+    e.preventDefault();
+    const p = canvasPos(e);
+    qrX = p.x - dragOX;
+    qrY = p.y - dragOY;
+    clamp();
+    render();
+  }
+
+  function onUp() { dragging = false; }
+
+  const cc = document.getElementById('composeCanvas');
+  cc.addEventListener('mousedown', onDown);
+  window.addEventListener('mousemove', onMove);
+  window.addEventListener('mouseup', onUp);
+  cc.addEventListener('touchstart', onDown, { passive: false });
+  window.addEventListener('touchmove', onMove, { passive: false });
+  window.addEventListener('touchend', onUp);
+
+  // ---- Download ----
+  function downloadCompose() {
+    if (!bgImg || !qrImg) { showToast('請先上傳兩張圖片'); return; }
+
+    const c = document.createElement('canvas');
+    c.width = bgImg.width;
+    c.height = bgImg.height;
+    const ctx = c.getContext('2d');
+    ctx.drawImage(bgImg, 0, 0);
+    ctx.drawImage(qrImg, qrX, qrY, qrW, qrH);
+
+    const a = document.createElement('a');
+    a.href = c.toDataURL('image/png');
+    a.download = 'qr-compose.png';
+    a.click();
+    showToast('合成圖片已下載！');
+  }
+
+  function showToast(msg) {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    setTimeout(() => t.classList.remove('show'), 2200);
+  }
+
+  // Drag & drop on upload areas
+  ['bgUploadArea', 'qrUploadArea'].forEach(id => {
+    const el = document.getElementById(id);
+    el.addEventListener('dragover', e => { e.preventDefault(); el.style.borderColor = 'var(--accent)'; });
+    el.addEventListener('dragleave', () => { el.style.borderColor = ''; });
+    el.addEventListener('drop', e => {
+      e.preventDefault();
+      el.style.borderColor = '';
+      const file = e.dataTransfer.files[0];
+      if (file && file.type.startsWith('image/')) {
+        const input = el.querySelector('input[type="file"]');
+        input.files = e.dataTransfer.files;
+        input.dispatchEvent(new Event('change'));
+      }
+    });
+  });
+</script>
+</body>
+</html>
